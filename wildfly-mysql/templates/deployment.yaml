@@ -1,0 +1,129 @@
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: {{ include "wildfly-mysql.fullname" . }}
+  labels:
+    app: {{ include "wildfly-mysql.fullname" . }}
+    app.kubernetes.io/name: {{ include "wildfly-mysql.name" . }}
+    helm.sh/chart: {{ include "wildfly-mysql.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "wildfly-mysql.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "wildfly-mysql.fullname" . }}
+        release: {{ .Release.name }}
+        component: "{{.Release.name}}"
+        app.kubernetes.io/name: {{ include "wildfly-mysql.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      initContainers:
+      - name: remove-lost-found
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        command: ["rm","-fr","/var/lib/mysql/lost+found"]
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/mysql
+      - name: init-script-downloader
+        image: appropriate/curl
+        args:
+          - "-vL"
+          - "-o"
+          - "/tmp/data/wildfly.sql"
+          - "{{.Values.wildfly.initScript}}"
+        volumeMounts:
+        - name: init-script
+          mountPath: /tmp/data
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - "--lower_case_table_names=1"
+          env:
+            - name: MYSQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{include "wildfly-mysql.fullname" . }}
+                  key: mysqldb-name
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{include "wildfly-mysql.fullname" . }}
+                  key: mysqldb-user
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{include "wildfly-mysql.fullname" . }}
+                  key: mysqldb-password
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{include "wildfly-mysql.fullname" . }}
+                  key: mysqldb-root-password
+          ports:
+            - name: mysql
+              containerPort: 3306
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command:
+              - mysqladmin
+              - -u
+              - {{ .Values.mysqlUser }}
+              - -p{{ .Values.mysqldbPassword }}
+              - ping
+              initialDelaySeconds: 130
+              timeoutSeconds: 15
+          readinessProbe:
+            exec:
+              command:
+              - mysqladmin
+              - -u
+              - {{ .Values.mysqlUser }}
+              - -p{{ .Values.mysqldbPassword }}
+              - ping
+              initialDelaySeconds: 135
+              timeoutSeconds: 11
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+          volumeMounts:
+          - name: data
+            mountPath: /var/lib/mysql
+          - name: init-script
+            mountPath: /docker-entrypoint-initdb.d
+          - name: configurations
+            mountPath: /etc/mysql/conf.d
+      volumes:
+      - name: init-script
+        persistentVolumeClaim:
+          claimName: {{ include "wildfly-mysql.fullname" .}}-init-script
+      - name: configurations
+        configMap:
+          name: {{ include "wildfly-mysql.fullname" .  }}-configuration
+      - name: data
+     {{- if .Values.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ .Values.persistence.existingClaim | default (include "wildfly-mysql.fullname" . ) }}
+     {{- else }}
+        emptyDir: {}
+     {{- end -}}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}

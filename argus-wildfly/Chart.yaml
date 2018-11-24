@@ -1,8 +1,0 @@
-apiVersion: v1
-appVersion: "1.0"
-description: A Helm chart for Argus WildFly deployment
-maintainers:
-- email: reza.alemy@guardrfid.com
-  name: Reza Alemy
-name: argus-wildfly
-version: 0.1.0

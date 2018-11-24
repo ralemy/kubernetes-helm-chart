@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "app-wildfly.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "app-wildfly.name" . }}
+    helm.sh/chart: {{ include "app-wildfly.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+    - port: 9990
+      targetPort: 9990
+      protocol: TCP
+      name: admin
+    - port: 8443
+      targetPort: 8443
+      protocol: TCP
+      name: https
+    - port: 4488
+      targetPort: 4488
+      protocol: TCP
+      name: rfid
+  selector:
+    app.kubernetes.io/name: {{ include "app-wildfly.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}

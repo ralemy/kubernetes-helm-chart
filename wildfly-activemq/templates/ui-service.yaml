@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "wildfly-activemq.fullname" . }}-ui
+  labels:
+    app.kubernetes.io/name: {{ include "wildfly-activemq.name" . }}
+    helm.sh/chart: {{ include "wildfly-activemq.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: 8161
+      targetPort: 8161
+      protocol: TCP
+      name: activemq-ui
+  selector:
+    app.kubernetes.io/name: {{ include "wildfly-activemq.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
